@@ -1,0 +1,58 @@
+# CI 工作流 - 代码质量检查和编译验证
+# 触发条件：推送到任何分支 或 创建 Pull Request
+
+name: CI
+
+# ==================== 触发条件 ====================
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+# ==================== 任务定义 ====================
+jobs:
+  # ---------- 代码检查和编译 ----------
+  lint-and-build:
+    name: Lint & Build
+    runs-on: ubuntu-latest  # 运行在 Ubuntu 最新版虚拟机
+
+    steps:
+      # Step 1: 检出代码
+      # 将你的代码从 GitHub 仓库下载到虚拟机
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Step 2: 设置 Go 环境
+      # 安装 Go 1.21 并启用模块缓存
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache: true  # 自动缓存 go mod 依赖，加速后续构建
+
+      # Step 3: 下载依赖
+      # 根据 go.mod 下载所有依赖包
+      - name: Download dependencies
+        run: go mod download
+
+      # Step 4: 验证依赖
+      # 确保 go.mod 和 go.sum 是最新的
+      - name: Verify dependencies
+        run: go mod verify
+
+      # Step 5: 代码规范检查 (golangci-lint)
+      # 使用我们配置的 .golangci.yml 规则检查代码
+      - name: Run golangci-lint
+        uses: golangci/golangci-lint-action@v4
+        with:
+          version: latest
+          args: --timeout=5m
+
+      # Step 6: 编译检查
+      # 确保代码可以成功编译（不生成二进制文件）
+      - name: Build
+        run: go build -v ./...
