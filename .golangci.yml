@@ -1,0 +1,40 @@
+# golangci-lint 配置文件
+# 文档: https://golangci-lint.run/usage/configuration/
+
+run:
+  # 超时时间
+  timeout: 5m
+  # 要检查的目录
+  tests: true
+
+linters:
+  # 启用的检查器
+  enable:
+    - errcheck      # 检查未处理的错误
+    - gosimple      # 简化代码建议
+    - govet         # Go 官方检查器
+    - ineffassign   # 检测无效赋值
+    - staticcheck   # 静态分析
+    - unused        # 未使用的代码
+    - gofmt         # 代码格式化检查
+    - goimports     # import 排序检查
+    - misspell      # 拼写错误检查
+
+linters-settings:
+  # errcheck 配置
+  errcheck:
+    # 检查类型断言
+    check-type-assertions: true
+
+  # goimports 配置
+  goimports:
+    # 本地包前缀（用于import排序）
+    local-prefixes: github.com/proyuen/simple-bank-v2
+
+issues:
+  # 排除的规则
+  exclude-rules:
+    # 测试文件可以有魔法数字
+    - path: _test\.go
+      linters:
+        - gomnd
