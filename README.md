@@ -14,7 +14,7 @@
 - **Go 1.21+** - 编程语言
 - **Gin** - Web 框架
 - **GORM** - ORM
-- **PostgreSQL** - 数据库
+- **MySQL 8.0+** - 数据库
 - **JWT** - 认证
 
 ## 快速开始
@@ -32,8 +32,8 @@
 git clone https://github.com/yuanko/simple-bank-v2.git
 cd simple-bank-v2
 
-# 2. 启动 PostgreSQL
-docker-compose up -d postgres
+# 2. 启动 MySQL
+docker-compose up -d mysql
 
 # 3. 执行数据库迁移
 make migrateup

@@ -1,92 +1,132 @@
-# Simple Bank V2
-
-## 项目概述
+# Project Instructions for Simple Bank V2
 
 Go 银行后端 MVP，使用三层架构 (Handler/Service/Repository)
 
-## 技术栈
+## Frequently Used Commands
 
-| 组件 | 技术 | 用途 |
-|------|------|------|
-| 语言 | Go 1.21+ | 后端开发 |
-| Web 框架 | Gin | REST API |
-| ORM | GORM | 数据库操作 |
-| 数据库 | PostgreSQL | 数据存储 |
-| 认证 | JWT | 用户认证 |
-| 配置 | Viper | 环境变量管理 |
+- **Build:** `go build -o bin/server ./cmd/server`
+- **Run:** `make server` 或 `go run ./cmd/server`
+- **Test:** `go test ./...`
+- **Test with coverage:** `go test -cover ./...`
+- **Lint:** `golangci-lint run`
+- **Format:** `gofmt -w .`
+- **Migration up:** `make migrateup`
+- **Migration down:** `make migratedown`
+- **Generate Swagger:** `swag init -g cmd/server/main.go`
 
-## 架构
+## Code Style Preferences
 
+- Use `gofmt` for all Go files (tabs for indentation)
+- Package names: lowercase, single word (`repository`, `service`, `handler`)
+- File names: lowercase with underscores (`user_repository.go`, `account_service.go`)
+- Exported types/functions: PascalCase (`CreateUser`, `UserService`)
+- Private types/functions: camelCase (`validatePassword`, `hashPassword`)
+- Interface names: PascalCase, typically ending with "er" (`UserRepository`, `TokenMaker`)
+- Error variables: `Err` prefix (`ErrUserNotFound`, `ErrInvalidToken`)
+- Constants: PascalCase or ALL_CAPS (`DefaultPageSize`, `MAX_RETRY_COUNT`)
+- Always pass `context.Context` as first parameter in functions that do I/O
+- Use `binding` tags for Gin request validation
+- Return `error` as the last return value
+
+## Architectural Patterns
+
+### Three-Layer Architecture
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                        HTTP 请求                             │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Handler 层 (internal/handler/)                              │
-│  - 接收 HTTP 请求                                            │
-│  - 解析请求参数                                              │
-│  - 调用 Service                                              │
-│  - 返回 HTTP 响应                                            │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Service 层 (internal/service/)                              │
-│  - 业务逻辑处理                                              │
-│  - 数据验证                                                  │
-│  - 调用 Repository                                           │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Repository 层 (internal/repository/)                        │
-│  - 数据库 CRUD 操作                                          │
-│  - SQL 查询封装                                              │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      PostgreSQL                              │
-└─────────────────────────────────────────────────────────────┘
+Handler  → HTTP request/response only, no business logic
+Service  → Business logic only, no direct database access
+Repository → Database CRUD only, no business logic
 ```
 
-## 目录结构
+### Dependency Injection
+- Use interfaces for dependencies, not concrete implementations
+- Inject dependencies via constructor functions (`NewUserService(repo UserRepository)`)
+
+### DTO and Model Separation
+- `internal/model/`: GORM database models
+- `internal/dto/`: Request/Response structures (never expose sensitive fields like passwords)
+
+### Error Handling
+- Define custom errors in `internal/errors/`
+- Handler layer converts errors to HTTP status codes
+- Use `errors.Is()` for error comparison
+
+### Transaction Handling
+- Handle transactions in Service layer using `execTx` pattern
+- Never start transactions in Repository layer
+
+## Project Structure
 
 ```
 simple-bank-v2/
-├── cmd/server/           # 应用入口
-├── internal/             # 私有代码（不对外暴露）
-│   ├── config/           # 配置加载
-│   ├── handler/          # HTTP 处理器
-│   ├── service/          # 业务逻辑
-│   ├── repository/       # 数据访问
-│   ├── model/            # GORM 模型
-│   ├── dto/              # 请求/响应对象
-│   └── errors/           # 错误处理
-├── pkg/                  # 可复用的公共包
-├── db/migration/         # 数据库迁移文件
-└── docs/                 # API 文档
+├── cmd/server/           # Application entry point (main.go)
+├── internal/             # Private application code
+│   ├── config/           # Configuration loading (Viper)
+│   ├── handler/          # HTTP handlers (Gin)
+│   ├── service/          # Business logic
+│   ├── repository/       # Data access (GORM)
+│   ├── model/            # GORM models
+│   ├── dto/              # Request/Response DTOs
+│   ├── errors/           # Custom error types
+│   └── middleware/       # HTTP middleware (auth, logging)
+├── pkg/                  # Reusable packages
+│   ├── token/            # JWT token generation/validation
+│   └── password/         # Password hashing (bcrypt)
+├── db/migration/         # SQL migration files (MySQL)
+└── docs/                 # API documentation (Swagger)
 ```
 
-## 常用命令
+## Tech Stack
 
-```bash
-make server       # 启动服务
-make migrateup    # 执行数据库迁移
-make migratedown  # 回滚数据库迁移
-make swagger      # 生成 API 文档
-make lint         # 代码规范检查
-```
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| Language | Go 1.21+ | Backend development |
+| Web Framework | Gin | REST API |
+| ORM | GORM | Database operations |
+| Database | MySQL 8.0+ | Data storage |
+| Auth | JWT | User authentication |
+| Config | Viper | Environment variable management |
 
-## API 端点
+## API Endpoints
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | /api/v1/users | 用户注册 |
-| POST | /api/v1/users/login | 用户登录 |
-| POST | /api/v1/accounts | 创建账户 |
-| GET | /api/v1/accounts/:id | 查询账户 |
-| GET | /api/v1/accounts | 账户列表 |
-| POST | /api/v1/transfers | 转账 |
+| Method | Path | Description | Auth |
+|--------|------|-------------|------|
+| POST | /api/v1/users | User registration | No |
+| POST | /api/v1/users/login | User login | No |
+| POST | /api/v1/tokens/renew | Refresh access token | No |
+| POST | /api/v1/accounts | Create account | Yes |
+| GET | /api/v1/accounts/:id | Get account by ID | Yes |
+| GET | /api/v1/accounts | List accounts | Yes |
+| POST | /api/v1/transfers | Create transfer | Yes |
+
+## Git Workflow
+
+- Use feature branches for all new development (`feature/add-user-auth`)
+- Commit messages: `type: description` (e.g., `feat: add user registration endpoint`)
+- Types: `feat`, `fix`, `refactor`, `docs`, `test`, `chore`
+- Run `go test ./...` before committing
+- Run `golangci-lint run` before creating PR
+
+## Implementation Order
+
+1. `db/migration/` - Database migrations
+2. `internal/config/` - Configuration loading
+3. `internal/model/` - GORM models
+4. `internal/repository/` - Repository interfaces and implementations
+5. `internal/dto/` - Request/Response structures
+6. `internal/errors/` - Custom error types
+7. `pkg/` - Utility packages (token, password)
+8. `internal/service/` - Business logic
+9. `internal/middleware/` - Auth middleware
+10. `internal/handler/` - HTTP handlers
+11. `cmd/server/main.go` - Application entry point
+
+## Detailed Guidelines
+
+For comprehensive implementation details, see the modular rules:
+
+- Code Style @.claude/rules/code-style.md
+- Error Handling @.claude/rules/error-handling.md
+- API Design @.claude/rules/api-design.md
+- Database @.claude/rules/database.md
+- Testing @.claude/rules/testing.md
+- Authentication @.claude/rules/authentication.md
