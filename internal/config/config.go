@@ -11,20 +11,51 @@ import (
 // Config 存储应用程序的所有配置
 // 这些值从环境变量中读取，使用 mapstructure 标签进行映射
 type Config struct {
-	// ========== 数据库配置 ==========
-	DBHost     string `mapstructure:"DB_HOST"`     // 数据库主机地址
-	DBPort     string `mapstructure:"DB_PORT"`     // 数据库端口
-	DBUser     string `mapstructure:"DB_USER"`     // 数据库用户名
-	DBPassword string `mapstructure:"DB_PASSWORD"` // 数据库密码
-	DBName     string `mapstructure:"DB_NAME"`     // 数据库名称
+	// 环境配置
+	Environment string `mapstructure:"ENVIRONMENT"` // 运行环境: development, production
 
-	// ========== 服务器配置 ==========
-	ServerAddress string `mapstructure:"SERVER_ADDRESS"` // 服务器监听地址 (例如: 0.0.0.0:8080)
+	// 数据库配置
+	DBHost            string        `mapstructure:"DB_HOST"`
+	DBPort            string        `mapstructure:"DB_PORT"`
+	DBUser            string        `mapstructure:"DB_USER"`
+	DBPassword        string        `mapstructure:"DB_PASSWORD"`
+	DBName            string        `mapstructure:"DB_NAME"`
+	DBMaxIdleConns    int           `mapstructure:"DB_MAX_IDLE_CONNS"`
+	DBMaxOpenConns    int           `mapstructure:"DB_MAX_OPEN_CONNS"`
+	DBConnMaxLifetime time.Duration `mapstructure:"DB_CONN_MAX_LIFETIME"`
 
-	// ========== JWT 配置 ==========
-	TokenSecretKey       string        `mapstructure:"TOKEN_SECRET_KEY"`        // JWT 签名密钥
-	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`   // Access Token 有效期
-	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`  // Refresh Token 有效期
+	// 服务器配置
+	ServerAddress        string        `mapstructure:"SERVER_ADDRESS"`
+	ServerShutdownTimeout time.Duration `mapstructure:"SERVER_SHUTDOWN_TIMEOUT"`
+
+	// JWT 配置
+	TokenSecretKey       string        `mapstructure:"TOKEN_SECRET_KEY"`
+	AccessTokenDuration  time.Duration `mapstructure:"ACCESS_TOKEN_DURATION"`
+	RefreshTokenDuration time.Duration `mapstructure:"REFRESH_TOKEN_DURATION"`
+}
+
+// Defaults 设置配置的默认值
+func (c *Config) Defaults() {
+	if c.Environment == "" {
+		c.Environment = "development"
+	}
+	if c.DBMaxIdleConns == 0 {
+		c.DBMaxIdleConns = 10
+	}
+	if c.DBMaxOpenConns == 0 {
+		c.DBMaxOpenConns = 100
+	}
+	if c.DBConnMaxLifetime == 0 {
+		c.DBConnMaxLifetime = time.Hour
+	}
+	if c.ServerShutdownTimeout == 0 {
+		c.ServerShutdownTimeout = 10 * time.Second
+	}
+}
+
+// IsProduction 返回是否为生产环境
+func (c *Config) IsProduction() bool {
+	return c.Environment == "production"
 }
 
 // LoadConfig 从指定路径加载配置
@@ -77,22 +108,25 @@ func LoadConfig(path string) (config Config, err error) {
 	// 将配置值解析到 Config 结构体
 	// mapstructure 标签指定了环境变量名与结构体字段的映射关系
 	err = viper.Unmarshal(&config)
+	if err != nil {
+		return
+	}
+
+	// 应用默认值
+	config.Defaults()
 	return
 }
 
-// DBSource 返回 PostgreSQL 连接字符串 (DSN)
+// DBSource 返回 MySQL 连接字符串 (DSN)
 //
-// DSN 格式: host=xxx port=xxx user=xxx password=xxx dbname=xxx sslmode=disable
+// DSN 格式: user:password@tcp(host:port)/dbname?parseTime=true&loc=Local
 //
 // 使用示例:
 //
 //	dsn := cfg.DBSource()
-//	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+//	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
 func (c *Config) DBSource() string {
-	return "host=" + c.DBHost +
-		" port=" + c.DBPort +
-		" user=" + c.DBUser +
-		" password=" + c.DBPassword +
-		" dbname=" + c.DBName +
-		" sslmode=disable"
+	return c.DBUser + ":" + c.DBPassword +
+		"@tcp(" + c.DBHost + ":" + c.DBPort + ")/" +
+		c.DBName + "?charset=utf8mb4&parseTime=true&loc=Local"
 }
